@@ -1,0 +1,26 @@
+[package]
+name = "spiropath"
+version = "0.1.0"
+authors = ["Oren Ben-Kiki <oren@ben-kiki.org>"]
+edition = "2018"
+license = "GPL-3.0"
+description = "Generalized Spirograph using arbitrary paths."
+repository = "https://github.com/orenbenkiki/spiropath"
+readme = "README.md"
+keywords = [ "2d", "svg" ]
+categories =[ "visualization" ]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "spiropath"
+path = "src/lib.rs"
+
+[[bin]]
+name = "spiropath"
+path = "src/bin.rs"
+
+[dependencies]
+clap = "^2.33.0"
+ordered-float = "^1.0.2"
+svg2polylines = "^0.5.2"
