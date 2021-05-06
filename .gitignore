@@ -1,13 +1,10 @@
-/target
 Cargo.lock
 cobertura.xml
 /docs/
 *junk*
 Makefile.scmf.toml
-plantuml.jar
 **/*.rs.bk
 .*.sw*
 tags
 /target/
-tests/actual
-Cargo.lock
+/tests/actual/

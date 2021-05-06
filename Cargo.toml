@@ -21,7 +21,9 @@ name = "spiropath"
 path = "src/bin.rs"
 
 [dependencies]
-assert_float_eq = "^1.1.3"
 clap = "^2.33.0"
 ordered-float = "^2.2.0"
 svg2polylines = "^0.5.2"
+
+[dev-dependencies]
+assert_float_eq = "^1.1.3"
