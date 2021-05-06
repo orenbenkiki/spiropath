@@ -87,7 +87,7 @@ fn test_clockwise() {
 }
 
 /// Return the distance between two points.
-pub fn distance(left_point: &Point, right_point: &Point) -> f64 {
+pub fn distance(left_point: Point, right_point: Point) -> f64 {
     let delta_x = left_point.x - right_point.x;
     let delta_y = left_point.y - right_point.y;
     delta_x.hypot(delta_y)
@@ -98,7 +98,7 @@ pub fn lengths(polyline: &[Point]) -> Vec<f64> {
     (0..polyline.len())
         .map(|prev_index| {
             let next_index = (prev_index + 1) % polyline.len();
-            distance(&polyline[prev_index], &polyline[next_index])
+            distance(polyline[prev_index], polyline[next_index])
         })
         .collect()
 }
@@ -138,7 +138,7 @@ fn test_scale() {
 }
 
 /// Return the direction (length 1) vector between two points (as a point).
-pub fn direction(from_point: &Point, to_point: &Point) -> Point {
+pub fn direction(from_point: Point, to_point: Point) -> Point {
     let delta_x = to_point.x - from_point.x;
     let delta_y = to_point.y - from_point.y;
     let distance = delta_x.hypot(delta_y);
@@ -153,13 +153,13 @@ pub fn directions(polyline: &[Point]) -> Polyline {
     let mut result = vec![Point { x: 0.0, y: 0.0 }; polyline.len()];
     for from_index in 0..polyline.len() {
         let to_index = (from_index + 1) % polyline.len();
-        result[from_index] = direction(&polyline[from_index], &polyline[to_index]);
+        result[from_index] = direction(polyline[from_index], polyline[to_index]);
     }
     result
 }
 
 #[cfg(test)]
-fn assert_point(point: &Point, x: f64, y: f64) {
+fn assert_point(point: Point, x: f64, y: f64) {
     assert_float_absolute_eq!(point.x, x, 1e-6);
     assert_float_absolute_eq!(point.y, y, 1e-6);
 }
@@ -174,9 +174,9 @@ fn test_directions() {
     ];
     let triangle_directions = directions(&triangle);
 
-    assert_point(&triangle_directions[0], 1.0, 0.0);
-    assert_point(&triangle_directions[1], 0.0, 1.0);
-    assert_point(&triangle_directions[2], -0.5_f64.sqrt(), -0.5_f64.sqrt());
+    assert_point(triangle_directions[0], 1.0, 0.0);
+    assert_point(triangle_directions[1], 0.0, 1.0);
+    assert_point(triangle_directions[2], -0.5_f64.sqrt(), -0.5_f64.sqrt());
 }
 
 /// Find the index of the top-most point of a polyline (after rotating by an angle).
@@ -208,7 +208,7 @@ fn test_find_top_most_point_index() {
 pub fn prune_repeated_points(polyline: &mut Polyline, tolerance: f64) {
     let mut kept_count = 1;
     for next_index in 1..polyline.len() {
-        if distance(&polyline[kept_count - 1], &polyline[next_index]) <= tolerance {
+        if distance(polyline[kept_count - 1], polyline[next_index]) <= tolerance {
             continue;
         }
         if kept_count < next_index {
@@ -217,7 +217,7 @@ pub fn prune_repeated_points(polyline: &mut Polyline, tolerance: f64) {
         }
     }
 
-    if kept_count > 1 && distance(&polyline[0], &polyline[kept_count - 1]) <= tolerance {
+    if kept_count > 1 && distance(polyline[0], polyline[kept_count - 1]) <= tolerance {
         kept_count -= 1;
     }
 
@@ -360,7 +360,7 @@ impl Options {
 }
 
 /// A point along a polyline where it is in contact with another.
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct ContactPoint {
     /// The index of the point in the polyline.
     pub index: usize,
@@ -531,34 +531,179 @@ fn test_transform() {
     ]];
 
     transform(&mut polylines, Scale::Same, Scale::Same);
-    assert_point(&polylines[0][0], 0.0, 1.0);
-    assert_point(&polylines[0][1], 1.0, 0.0);
-    assert_point(&polylines[0][2], 2.0, 1.0);
-    assert_point(&polylines[0][3], 1.0, 2.0);
+    assert_point(polylines[0][0], 0.0, 1.0);
+    assert_point(polylines[0][1], 1.0, 0.0);
+    assert_point(polylines[0][2], 2.0, 1.0);
+    assert_point(polylines[0][3], 1.0, 2.0);
 
     transform(&mut polylines, Scale::Factor(2.0), Scale::Same);
-    assert_point(&polylines[0][0], 0.0, 2.0);
-    assert_point(&polylines[0][1], 2.0, 0.0);
-    assert_point(&polylines[0][2], 4.0, 2.0);
-    assert_point(&polylines[0][3], 2.0, 4.0);
+    assert_point(polylines[0][0], 0.0, 2.0);
+    assert_point(polylines[0][1], 2.0, 0.0);
+    assert_point(polylines[0][2], 4.0, 2.0);
+    assert_point(polylines[0][3], 2.0, 4.0);
 
     transform(&mut polylines, Scale::Same, Scale::Factor(0.5));
-    assert_point(&polylines[0][0], 0.0, 1.0);
-    assert_point(&polylines[0][1], 1.0, 0.0);
-    assert_point(&polylines[0][2], 2.0, 1.0);
-    assert_point(&polylines[0][3], 1.0, 2.0);
+    assert_point(polylines[0][0], 0.0, 1.0);
+    assert_point(polylines[0][1], 1.0, 0.0);
+    assert_point(polylines[0][2], 2.0, 1.0);
+    assert_point(polylines[0][3], 1.0, 2.0);
 
     transform(&mut polylines, Scale::Size(3.0), Scale::Factor(1.0));
-    assert_point(&polylines[0][0], 0.0, 1.0);
-    assert_point(&polylines[0][1], 1.5, 0.0);
-    assert_point(&polylines[0][2], 3.0, 1.0);
-    assert_point(&polylines[0][3], 1.5, 2.0);
+    assert_point(polylines[0][0], 0.0, 1.0);
+    assert_point(polylines[0][1], 1.5, 0.0);
+    assert_point(polylines[0][2], 3.0, 1.0);
+    assert_point(polylines[0][3], 1.5, 2.0);
 
     transform(&mut polylines, Scale::Factor(1.0), Scale::Size(5.0));
-    assert_point(&polylines[0][0], 0.0, 2.5);
-    assert_point(&polylines[0][1], 1.5, 0.0);
-    assert_point(&polylines[0][2], 3.0, 2.5);
-    assert_point(&polylines[0][3], 1.5, 5.0);
+    assert_point(polylines[0][0], 0.0, 2.5);
+    assert_point(polylines[0][1], 1.5, 0.0);
+    assert_point(polylines[0][2], 3.0, 2.5);
+    assert_point(polylines[0][3], 1.5, 5.0);
+}
+
+#[cfg(test)]
+fn rotate_around(point: Point, center: Point, from_direction: Point, to_direction: Point) -> Point {
+    let shifted = Point {
+        x: point.x - center.x,
+        y: point.y - center.y,
+    };
+
+    let cosine = from_direction.x * to_direction.x + from_direction.y * to_direction.y;
+    let sine = from_direction.x * to_direction.y - from_direction.y * to_direction.x;
+
+    let rotated = Point {
+        x: shifted.x * cosine - shifted.y * sine,
+        y: shifted.x * sine + shifted.y * cosine,
+    };
+
+    let unshifted = Point {
+        x: rotated.x + center.x,
+        y: rotated.y + center.y,
+    };
+
+    unshifted
+}
+
+#[cfg(test)]
+#[test]
+fn test_rotate_around() {
+    let right = Point { x: 1.0, y: 0.0 };
+    let up = Point { x: 0.0, y: 1.0 };
+    let center = Point { x: 1.0, y: 1.0 };
+    assert_point(
+        rotate_around(Point { x: 1.0, y: 0.0 }, center, right, up),
+        2.0,
+        1.0,
+    );
+    assert_point(
+        rotate_around(Point { x: 1.0, y: 2.0 }, center, up, right),
+        2.0,
+        1.0,
+    );
+}
+
+#[cfg(test)]
+fn arc_to(polyline: &mut Polyline, center: Point, to_point: Point, tolerance: f64) {
+    let from_point = polyline.last().unwrap();
+    let from_vector = Point {
+        x: from_point.x - center.x,
+        y: from_point.y - center.y,
+    };
+
+    let to_vector = Point {
+        x: to_point.x - center.x,
+        y: to_point.y - center.y,
+    };
+
+    let dot = from_vector.x * to_vector.x + from_vector.y * to_vector.y;
+    let from_radius = (from_vector.x * from_vector.x + from_vector.y * from_vector.y).sqrt();
+    let to_radius = (to_vector.x * to_vector.x + to_vector.y * to_vector.y).sqrt();
+    let radius = (from_radius + to_radius) / 2.0;
+    if radius < tolerance {
+        return;
+    }
+    let det = from_vector.x * to_vector.y - from_vector.y * to_vector.x;
+
+    let total_angle = det.atan2(dot);
+    let max_step_angle = 2.0 * (1.0 - tolerance / radius).acos();
+    let steps_amount = (total_angle.abs() / max_step_angle).ceil();
+    let step_angle = total_angle / steps_amount;
+    let steps_count = steps_amount as usize;
+
+    for step_index in 1..steps_count {
+        let angle = step_angle * step_index as f64;
+
+        let cosine = angle.cos();
+        let sine = angle.sin();
+
+        let step_vector = Point {
+            x: from_vector.x * cosine - from_vector.y * sine,
+            y: from_vector.x * sine + from_vector.y * cosine,
+        };
+
+        let step_point = Point {
+            x: center.x + step_vector.x,
+            y: center.y + step_vector.y,
+        };
+
+        polyline.push(step_point);
+    }
+
+    polyline.push(to_point);
+}
+
+#[cfg(test)]
+#[test]
+fn test_arc_to() {
+    let center = Point { x: 1.0, y: 1.0 };
+    let bottom = Point { x: 1.0, y: 0.0 };
+    let left = Point { x: 0.0, y: 1.0 };
+    let right = Point { x: 2.0, y: 1.0 };
+    let tolerance = 0.05;
+    let small = 0.5;
+    let large = 0.75_f64.sqrt();
+
+    let mut left_polyline = vec![bottom];
+    arc_to(&mut left_polyline, center, left, tolerance);
+    assert!(left_polyline.len() == 4);
+    assert_point(left_polyline[0], bottom.x, bottom.y);
+    assert_point(left_polyline[1], 1.0 - small, 1.0 - large);
+    assert_point(left_polyline[2], 1.0 - large, 1.0 - small);
+    assert_point(left_polyline[3], left.x, left.y);
+
+    let mut right_polyline = vec![bottom];
+    arc_to(&mut right_polyline, center, right, tolerance);
+    assert!(right_polyline.len() == 4);
+    assert_point(right_polyline[0], bottom.x, bottom.y);
+    assert_point(right_polyline[1], 1.0 + small, 1.0 - large);
+    assert_point(right_polyline[2], 1.0 + large, 1.0 - small);
+    assert_point(right_polyline[3], right.x, right.y);
+}
+
+/// The state we maintain for one of the paths.
+#[derive(Debug)]
+pub struct PathState<'a> {
+    /// The current contact with the other path.
+    pub contact_point: ContactPoint,
+
+    /// A vector of the points along the path.
+    pub points: &'a [Point],
+
+    /// A vector of the directions of the path at each point.
+    pub directions: &'a [Point],
+
+    /// A vector of the lengths of the path segments at each point.
+    pub lengths: &'a [f64],
+}
+
+/// Compute the path of the traced point as we rotate one path around another.
+fn spiropath_polyline(
+    _stationary_state: PathState,
+    _rotating_state: PathState,
+    _rotating_point: Point,
+    _tolerance: f64,
+) -> Polyline {
+    _stationary_state.points.to_vec()
 }
 
 /// Generate spiropath(s) by rotating one shape around another.
@@ -581,11 +726,11 @@ pub fn spiropath(
     let stationary_scale = options.stationary_teeth as f64 / stationary_lengths.iter().sum::<f64>();
     scale_lengths(&mut stationary_lengths, stationary_scale);
     scale_polyline(&mut stationary, stationary_scale, stationary_scale);
-    let _stationary_directions = directions(&stationary);
+    let stationary_directions = directions(&stationary);
 
     let mut polylines: Vec<Polyline> = vec![];
     if options.include_stationary {
-        polylines.push(stationary);
+        polylines.push(stationary.clone());
     }
 
     let mut rotating_lengths = lengths(&rotating);
@@ -593,29 +738,40 @@ pub fn spiropath(
     scale_lengths(&mut rotating_lengths, rotating_scale);
     scale_polyline(&mut rotating, rotating_scale, rotating_scale);
     scale_point(&mut options.traced_point, rotating_scale, rotating_scale);
-    let _rotating_directions = directions(&rotating);
+    let rotating_directions = directions(&rotating);
 
     let rotating_top_most_index =
         find_top_most_point_index(&rotating, options.initial_rotating_angle);
-    let _rotating_contact_point = ContactPoint {
+    let rotating_contact_point = ContactPoint {
         index: rotating_top_most_index,
         offset: 0.0,
     };
 
     for initial_offset in options.initial_offsets.iter() {
-        let _stationary_contact_point =
-            find_offset_contact_point(&stationary_lengths, *initial_offset, options.tolerance);
-        /*
+        let stationary_state = PathState {
+            contact_point: find_offset_contact_point(
+                &stationary_lengths,
+                *initial_offset,
+                options.tolerance,
+            ),
+            points: &stationary,
+            directions: &stationary_directions,
+            lengths: &stationary_lengths,
+        };
+
+        let rotating_state = PathState {
+            contact_point: rotating_contact_point,
+            points: &rotating,
+            directions: &rotating_directions,
+            lengths: &rotating_lengths,
+        };
+
         polylines.push(spiropath_polyline(
-            &stationary_directions,
-            &stationary_lengths,
-            stationary_contact_point,
-            &rotating_directions,
-            &rotating_lengths,
-            rotating_contact_point,
+            stationary_state,
+            rotating_state,
+            options.traced_point,
             options.tolerance,
         ));
-        */
     }
 
     transform(&mut polylines, options.x_scale, options.y_scale);
@@ -642,7 +798,7 @@ fn test_spiropath() {
         tolerance: 0.01,
         traced_point: Point { x: 0.0, y: 0.0 },
         initial_rotating_angle: 0.0,
-        include_stationary: true,
+        include_stationary: false,
         initial_offsets: vec![],
         x_scale: Scale::Same,
         y_scale: Scale::Same,
