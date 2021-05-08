@@ -228,6 +228,12 @@ fn app() -> App<'static, 'static> {
                 .default_value("x1.0"),
         )
         .arg(
+            Arg::with_name("mirror-rotating")
+                .long("mirror-rotating")
+                .short("M")
+                .help("Mirror the rotating path"),
+        )
+        .arg(
             Arg::with_name("include-stationary")
                 .long("include-stationary")
                 .short("I")
@@ -242,6 +248,7 @@ fn arg_options(arg_matches: &ArgMatches) -> Options {
     let tolerance = parse_fraction(arg_matches, "tolerance");
     let traced_point = parse_point(arg_matches, "point");
     let initial_rotating_angle = parse_value(arg_matches, "angle");
+    let mirror_rotating = arg_matches.is_present("mirror-rotating");
     let include_stationary = arg_matches.is_present("include-stationary");
     let initial_offsets = parse_offsets(arg_matches, "offset", stationary_teeth as f64);
     let x_scale = parse_scale(arg_matches, "x-scale");
@@ -253,6 +260,7 @@ fn arg_options(arg_matches: &ArgMatches) -> Options {
         tolerance,
         traced_point,
         initial_rotating_angle,
+        mirror_rotating,
         include_stationary,
         initial_offsets,
         x_scale,

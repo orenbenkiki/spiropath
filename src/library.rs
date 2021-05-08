@@ -305,6 +305,9 @@ pub struct Options {
     /// The angle of the rotating shape at the start of the stationary shape (in degrees).
     pub initial_rotating_angle: f64,
 
+    /// Whether to mirror the rotating shape.
+    pub mirror_rotating: bool,
+
     /// Whether to include the stationary shape in the output.
     pub include_stationary: bool,
 
@@ -694,6 +697,14 @@ pub fn spiropath(
 ) -> Vec<Polyline> {
     if !is_clockwise(&stationary) {
         stationary.reverse(); // NOT TESTED
+    }
+
+    if options.mirror_rotating {
+        // BEGIN NOT TESTED
+        for point in rotating.iter_mut() {
+            point.x *= -1.0;
+        }
+        // END NOT TESTED
     }
 
     match (options.location, is_clockwise(&rotating)) {
