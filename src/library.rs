@@ -3,6 +3,7 @@ use std::cmp::Ordering;
 use std::f64::consts::PI;
 use std::fs::read_to_string;
 use std::io::Write;
+use std::mem::swap;
 use svg2polylines::parse as parse_svg;
 use svg2polylines::CoordinatePair as Point;
 use svg2polylines::Polyline;
@@ -236,10 +237,14 @@ pub fn load_polyline_from_svg_file(path: &str, tolerance: f64) -> Polyline {
 // END NOT TESTED
 
 fn print_svg_polyline(polyline: &[Point], output: &mut dyn Write) {
-    writeln!(output, "<path d='").unwrap();
+    writeln!(
+        output,
+        "<path fill='none' stroke='black' stroke-width='0.1' d='"
+    )
+    .unwrap();
     let mut command = "M";
     for point in polyline {
-        writeln!(output, "{} {}pt {}pt", command, point.x, point.y).unwrap();
+        writeln!(output, "{} {} {}", command, point.x, point.y).unwrap();
         command = "L";
     }
     writeln!(output, "Z").unwrap();
@@ -251,13 +256,18 @@ pub fn print_svg_polylines(polylines: &[Polyline], output: &mut dyn Write) {
     let maximal_point = maximal_coordinates(polylines);
     writeln!(
         output,
-        "<svg width='{}pt', height='{}pt', xmlns='http://www.w3.org/2000/svg'>",
+        "<svg width='{}pt' height='{}pt' xmlns='http://www.w3.org/2000/svg'>",
         maximal_point.x, maximal_point.y
     )
     .unwrap();
+
+    writeln!(output, "<g transform='scale(1.333333 1.333333)'>").unwrap();
+
     for polyline in polylines {
         print_svg_polyline(polyline, output);
     }
+
+    writeln!(output, "</g>").unwrap();
     writeln!(output, "</svg>").unwrap();
 }
 
@@ -353,8 +363,7 @@ pub struct ContactPoint {
 }
 
 /// Find a point along a polyline by its offset (up to some tolerance).
-fn find_offset_contact_point(lengths: &[f64], mut offset: f64, mut tolerance: f64) -> ContactPoint {
-    tolerance /= 2.0;
+fn find_offset_contact_point(lengths: &[f64], mut offset: f64, tolerance: f64) -> ContactPoint {
     let mut index = 0;
 
     while offset > tolerance && lengths[index] < offset + tolerance {
@@ -477,13 +486,13 @@ pub fn transform(polylines: &mut [Polyline], x_scale: Scale, y_scale: Scale) {
     };
 
     let maybe_x_factor = match x_scale {
-        Scale::Size(x_size) => Some(x_size / size.x),
+        Scale::Size(x_size) => Some(if size.x > 0.0 { x_size / size.x } else { 1.0 }),
         Scale::Factor(factor) => Some(factor),
         Scale::Same => None,
     };
 
     let maybe_y_factor = match y_scale {
-        Scale::Size(y_size) => Some(y_size / size.y),
+        Scale::Size(y_size) => Some(if size.y > 0.0 { y_size / size.y } else { 1.0 }),
         Scale::Factor(factor) => Some(factor),
         Scale::Same => None,
     };
@@ -544,15 +553,24 @@ fn test_transform() {
     assert_point(polylines[0][3], 1.5, 5.0);
 }
 
-#[cfg(test)]
-fn rotate_around(point: Point, center: Point, from_direction: Point, to_direction: Point) -> Point {
+fn traced_position(
+    point: Point,
+    from_center: Point,
+    to_center: Point,
+    from_direction: Point,
+    to_direction: Point,
+) -> Point {
     let shifted = Point {
-        x: point.x - center.x,
-        y: point.y - center.y,
+        x: point.x - from_center.x,
+        y: point.y - from_center.y,
     };
 
     let cosine = from_direction.x * to_direction.x + from_direction.y * to_direction.y;
     let sine = from_direction.x * to_direction.y - from_direction.y * to_direction.x;
+    eprintln!(
+        "from {:?} to {:?} sine {} cosine {}",
+        from_direction, to_direction, sine, cosine
+    );
 
     let rotated = Point {
         x: shifted.x * cosine - shifted.y * sine,
@@ -560,8 +578,8 @@ fn rotate_around(point: Point, center: Point, from_direction: Point, to_directio
     };
 
     let unshifted = Point {
-        x: rotated.x + center.x,
-        y: rotated.y + center.y,
+        x: rotated.x + to_center.x,
+        y: rotated.y + to_center.y,
     };
 
     unshifted
@@ -569,25 +587,30 @@ fn rotate_around(point: Point, center: Point, from_direction: Point, to_directio
 
 #[cfg(test)]
 #[test]
-fn test_rotate_around() {
+fn test_traced_position() {
     let right = Point { x: 1.0, y: 0.0 };
     let up = Point { x: 0.0, y: 1.0 };
-    let center = Point { x: 1.0, y: 1.0 };
+    let from_center = Point { x: 1.0, y: 1.0 };
+    let to_center = Point { x: 11.0, y: 11.0 };
     assert_point(
-        rotate_around(Point { x: 1.0, y: 0.0 }, center, right, up),
-        2.0,
-        1.0,
+        traced_position(Point { x: 1.0, y: 0.0 }, from_center, to_center, right, up),
+        12.0,
+        11.0,
     );
     assert_point(
-        rotate_around(Point { x: 1.0, y: 2.0 }, center, up, right),
-        2.0,
-        1.0,
+        traced_position(Point { x: 1.0, y: 2.0 }, from_center, to_center, up, right),
+        12.0,
+        11.0,
     );
 }
 
-#[cfg(test)]
-fn arc_to(polyline: &mut Polyline, center: Point, to_point: Point, tolerance: f64) {
-    let from_point = polyline.last().unwrap();
+fn arc_to(
+    polyline: &mut Polyline,
+    center: Point,
+    from_point: Point,
+    to_point: Point,
+    tolerance: f64,
+) {
     let from_vector = Point {
         x: from_point.x - center.x,
         y: from_point.y - center.y,
@@ -613,6 +636,7 @@ fn arc_to(polyline: &mut Polyline, center: Point, to_point: Point, tolerance: f6
     let step_angle = total_angle / steps_amount;
     let steps_count = steps_amount as usize;
 
+    polyline.push(from_point);
     for step_index in 1..steps_count {
         let angle = step_angle * step_index as f64;
 
@@ -631,8 +655,6 @@ fn arc_to(polyline: &mut Polyline, center: Point, to_point: Point, tolerance: f6
 
         polyline.push(step_point);
     }
-
-    polyline.push(to_point);
 }
 
 #[cfg(test)]
@@ -646,25 +668,23 @@ fn test_arc_to() {
     let small = 0.5;
     let large = 0.75_f64.sqrt();
 
-    let mut left_polyline = vec![bottom];
-    arc_to(&mut left_polyline, center, left, tolerance);
-    assert!(left_polyline.len() == 4);
+    let mut left_polyline: Polyline = vec![];
+    arc_to(&mut left_polyline, center, bottom, left, tolerance);
+    assert!(left_polyline.len() == 3);
     assert_point(left_polyline[0], bottom.x, bottom.y);
     assert_point(left_polyline[1], 1.0 - small, 1.0 - large);
     assert_point(left_polyline[2], 1.0 - large, 1.0 - small);
-    assert_point(left_polyline[3], left.x, left.y);
 
-    let mut right_polyline = vec![bottom];
-    arc_to(&mut right_polyline, center, right, tolerance);
-    assert!(right_polyline.len() == 4);
+    let mut right_polyline: Polyline = vec![];
+    arc_to(&mut right_polyline, center, bottom, right, tolerance);
+    assert!(right_polyline.len() == 3);
     assert_point(right_polyline[0], bottom.x, bottom.y);
     assert_point(right_polyline[1], 1.0 + small, 1.0 - large);
     assert_point(right_polyline[2], 1.0 + large, 1.0 - small);
-    assert_point(right_polyline[3], right.x, right.y);
 }
 
 /// The state we maintain for one of the paths.
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct PathState<'a> {
     /// The current contact with the other path.
     pub contact_point: ContactPoint,
@@ -679,14 +699,145 @@ pub struct PathState<'a> {
     pub lengths: &'a [f64],
 }
 
+fn is_close_before(current_state: &PathState, end_state: &PathState, tolerance: f64) -> bool {
+    let mut current_index = current_state.contact_point.index;
+    let mut current_offset = current_state.contact_point.offset;
+
+    let end_index = end_state.contact_point.index;
+    let end_offset = end_state.contact_point.offset;
+
+    if current_index != end_index {
+        current_offset -= current_state.lengths[current_index];
+        current_index = (current_index + 1) % current_state.points.len();
+    }
+
+    current_index == end_index && current_offset >= end_offset - tolerance
+}
+
+fn state_center_and_position(
+    stationary_state: &PathState,
+    rotated_state: &PathState,
+    traced_point: Point,
+) -> (Point, Point) {
+    let from_direction = rotated_state.directions[rotated_state.contact_point.index];
+    let to_direction = stationary_state.directions[stationary_state.contact_point.index];
+
+    let from_center = Point {
+        x: rotated_state.points[rotated_state.contact_point.index].x
+            + from_direction.x * rotated_state.contact_point.offset,
+        y: rotated_state.points[rotated_state.contact_point.index].y
+            + from_direction.y * rotated_state.contact_point.offset,
+    };
+    let to_center = Point {
+        x: stationary_state.points[stationary_state.contact_point.index].x
+            + to_direction.x * stationary_state.contact_point.offset,
+        y: stationary_state.points[stationary_state.contact_point.index].y
+            + to_direction.y * stationary_state.contact_point.offset,
+    };
+
+    let position = traced_position(
+        traced_point,
+        from_center,
+        to_center,
+        from_direction,
+        to_direction,
+    );
+    (to_center, position)
+}
+
+fn next_contact_point(stationary_state: &mut PathState, rotating_state: &mut PathState) -> f64 {
+    let stationary_distance = stationary_state.lengths[stationary_state.contact_point.index]
+        - stationary_state.contact_point.offset;
+    let rotating_distance = rotating_state.lengths[rotating_state.contact_point.index]
+        - rotating_state.contact_point.offset;
+
+    if stationary_distance < rotating_distance {
+        stationary_state.contact_point.index =
+            (stationary_state.contact_point.index + 1) % stationary_state.points.len();
+        stationary_state.contact_point.offset = 0.0;
+        rotating_state.contact_point.offset += stationary_distance;
+        stationary_distance
+    } else if rotating_distance < stationary_distance {
+        rotating_state.contact_point.index =
+            (rotating_state.contact_point.index + 1) % rotating_state.points.len();
+        rotating_state.contact_point.offset = 0.0;
+        stationary_state.contact_point.offset += rotating_distance;
+        rotating_distance
+    } else {
+        stationary_state.contact_point.index =
+            (stationary_state.contact_point.index + 1) % stationary_state.points.len();
+        stationary_state.contact_point.offset = 0.0;
+        rotating_state.contact_point.index =
+            (rotating_state.contact_point.index + 1) % rotating_state.points.len();
+        rotating_state.contact_point.offset = 0.0;
+        (stationary_distance + rotating_distance) / 2.0
+    }
+}
+
 /// Compute the path of the traced point as we rotate one path around another.
 pub fn spiropath_polyline(
-    _stationary_state: PathState,
-    _rotating_state: PathState,
-    _rotating_point: Point,
-    _tolerance: f64,
+    stationary_state: &PathState,
+    rotating_state: &PathState,
+    traced_point: Point,
+    tolerance: f64,
+    max_length: usize,
 ) -> Polyline {
-    _stationary_state.points.to_vec()
+    let mut current_stationary_state = *stationary_state;
+    let mut current_rotating_state = *rotating_state;
+    let mut polyline: Polyline = Vec::new();
+    let mut contact_length = 0.5;
+
+    let (_, mut current_traced_point) = state_center_and_position(
+        &mut current_stationary_state,
+        &mut current_rotating_state,
+        traced_point,
+    );
+
+    loop {
+        contact_length +=
+            next_contact_point(&mut current_stationary_state, &mut current_rotating_state);
+
+        let (next_center, next_traced_point) = state_center_and_position(
+            &current_stationary_state,
+            &current_rotating_state,
+            traced_point,
+        );
+
+        arc_to(
+            &mut polyline,
+            next_center,
+            current_traced_point,
+            next_traced_point,
+            tolerance,
+        );
+        current_traced_point = next_traced_point;
+
+        if contact_length > max_length as f64
+            && is_close_before(&current_rotating_state, &rotating_state, tolerance)
+        {
+            return polyline;
+        }
+    }
+}
+
+fn gcd(mut n: usize, mut m: usize) -> usize {
+    if n > m {
+        swap(&mut n, &mut m);
+    }
+    while n > 0 && m > 0 {
+        m = m % n;
+        swap(&mut n, &mut m);
+    }
+    n + m
+}
+
+fn lcm(n: usize, m: usize) -> usize {
+    n * m / gcd(n, m)
+}
+
+#[test]
+fn test_lcm() {
+    assert_eq!(lcm(8, 12), 24);
 }
 
 /// Generate spiropath(s) by rotating one shape around another.
@@ -758,10 +909,11 @@ pub fn spiropath(
         };
 
         polylines.push(spiropath_polyline(
-            stationary_state,
-            rotating_state,
+            &stationary_state,
+            &rotating_state,
             options.traced_point,
             options.tolerance,
+            lcm(options.stationary_teeth, options.rotating_teeth),
         ));
     }
 

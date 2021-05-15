@@ -22,6 +22,14 @@ macro_rules! test_case {
     ($name:ident, $suffix:literal, $flags:expr) => {
         #[test]
         fn $name() {
+            for directory in vec!["tests/expected", "tests/actual"].iter() {
+                create_dir_all(directory).unwrap_or_else(|_| {
+                    // BEGIN NOT TESTED
+                    panic!("failed to create {} results directory", directory)
+                    // END NOT TESTED
+                });
+            }
+
             let file_name = format!("{}.{}", test_name!(), $suffix);
             let mut flags: Vec<String> = $flags.iter().map(|string| string.to_string()).collect();
             flags.push("--output".to_string());
@@ -33,14 +41,6 @@ macro_rules! test_case {
 }
 
 fn impl_assert_output(file_name: &str) {
-    for directory in vec!["tests/expected", "tests/actual]"].iter() {
-        create_dir_all(directory).unwrap_or_else(|_| {
-            // BEGIN NOT TESTED
-            panic!("failed to create {} results directory", directory)
-            // END NOT TESTED
-        });
-    }
-
     let actual_path = format!("tests/actual/{}", file_name);
     let actual_bytes = read(actual_path.clone()).unwrap();
 
@@ -66,4 +66,8 @@ fn impl_assert_output(file_name: &str) {
     );
 }
 
-test_case! { square, "svg", vec!["test", "--stationary", "4", "-X", "100pt", "-Y", "100pt"] }
+test_case! {
+    square,
+    "svg",
+    vec!["test", "-P", "200,0", "-R", "2", "-S", "8", "-r", "4", "-s", "4", "-I", "-X", "100pt", "-Y", "100pt"]
+}

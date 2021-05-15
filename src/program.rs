@@ -163,7 +163,7 @@ fn app() -> App<'static, 'static> {
                     "Linear path approximation tolerance,\n\
                       as a fraction of the teeth size",
                 )
-                .default_value("0.1"),
+                .default_value("0.001"),
         )
         .arg(
             Arg::with_name("point")
@@ -176,7 +176,7 @@ fn app() -> App<'static, 'static> {
                 .value_name("X,Y")
                 .number_of_values(2)
                 .require_delimiter(true)
-                .default_value("0,0"),
+                .default_value("100,0"),
         )
         .arg(
             Arg::with_name("angle")
@@ -344,10 +344,13 @@ fn parse_values(arg_matches: &ArgMatches, name: &str) -> Vec<f64> {
 }
 
 fn parse_offsets(arg_matches: &ArgMatches, name: &str, stationary_teeth: f64) -> Vec<f64> {
-    let offsets = parse_values(arg_matches, name);
-    for offset in offsets.iter() {
-        if *offset < 0.0 {
-            panic!("{}: {} is negative", name, offset); // NOT TESTED
+    let mut offsets = parse_values(arg_matches, name);
+    for offset in offsets.iter_mut() {
+        while *offset < 0.0 {
+            *offset += stationary_teeth; // NOT TESTED
+        }
+        while *offset > stationary_teeth {
+            *offset -= stationary_teeth; // NOT TESTED
         }
         if *offset >= stationary_teeth {
             // BEGIN NOT TESTED
@@ -383,7 +386,10 @@ fn parse_scale(arg_matches: &ArgMatches, name: &str) -> Scale {
 fn parse_polyline(arg_matches: &ArgMatches, name: &str, teeth: usize, tolerance: f64) -> Polyline {
     let value = arg_matches.value_of(name).unwrap();
     if value == "CIRCLE" {
-        regular_polyline(teeth)
+        let max_step_angle = 2.0 * (1.0 - tolerance / 100.0).acos();
+        let minimal_teeth = 2.0 * PI / max_step_angle;
+        let factor = (minimal_teeth / teeth as f64).ceil();
+        regular_polyline(teeth * factor as usize)
     } else if let Result::Ok(sides) = value.parse::<usize>() {
         if sides < 2 {
             panic!("{} sides: {} are less than 2", name, sides); // NOT TESTED
@@ -398,8 +404,8 @@ fn regular_polyline(sides: usize) -> Polyline {
     let angle = 2.0 * PI / (sides as f64);
     let mut polyline = vec![Point { x: 0.0, y: 0.0 }; sides];
     for (side, point) in polyline.iter_mut().enumerate() {
-        point.x = 100.0 * (angle * side as f64).sin();
-        point.y = 100.0 * (angle * side as f64).cos();
+        point.x = 100.0 * (angle * (0.5 + side as f64)).sin();
+        point.y = 100.0 * (angle * (0.5 + side as f64)).cos();
     }
     polyline
 }
