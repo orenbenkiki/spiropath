@@ -69,5 +69,6 @@ fn impl_assert_output(file_name: &str) {
 test_case! {
     square,
     "svg",
-    vec!["test", "-P", "200,0", "-R", "2", "-S", "8", "-r", "4", "-s", "4", "-I", "-X", "100pt", "-Y", "100pt"]
+    vec!["test", "-r", "4", "-s", "4", "-R", "2", "-S", "8", "-I", "-X", "100pt", "-Y", "100pt"]
+
 }

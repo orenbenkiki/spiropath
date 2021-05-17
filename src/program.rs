@@ -386,10 +386,12 @@ fn parse_scale(arg_matches: &ArgMatches, name: &str) -> Scale {
 fn parse_polyline(arg_matches: &ArgMatches, name: &str, teeth: usize, tolerance: f64) -> Polyline {
     let value = arg_matches.value_of(name).unwrap();
     if value == "CIRCLE" {
+        // BEGIN NOT TESTED
         let max_step_angle = 2.0 * (1.0 - tolerance / 100.0).acos();
         let minimal_teeth = 2.0 * PI / max_step_angle;
         let factor = (minimal_teeth / teeth as f64).ceil();
         regular_polyline(teeth * factor as usize)
+        // END NOT TESTED
     } else if let Result::Ok(sides) = value.parse::<usize>() {
         if sides < 2 {
             panic!("{} sides: {} are less than 2", name, sides); // NOT TESTED
@@ -404,8 +406,8 @@ fn regular_polyline(sides: usize) -> Polyline {
     let angle = 2.0 * PI / (sides as f64);
     let mut polyline = vec![Point { x: 0.0, y: 0.0 }; sides];
     for (side, point) in polyline.iter_mut().enumerate() {
-        point.x = 100.0 * (angle * (0.5 + side as f64)).sin();
-        point.y = 100.0 * (angle * (0.5 + side as f64)).cos();
+        point.x = 100.0 * (angle * side as f64).sin();
+        point.y = 100.0 * (angle * side as f64).cos();
     }
     polyline
 }
