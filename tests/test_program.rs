@@ -67,8 +67,49 @@ fn impl_assert_output(file_name: &str) {
 }
 
 test_case! {
-    square,
+    defaults,
     "svg",
-    vec!["test", "-r", "4", "-s", "4", "-R", "2", "-S", "8", "-I", "-X", "100pt", "-Y", "100pt"]
+    vec!["test"]
+}
 
+test_case! {
+    scaled_by_size,
+    "svg",
+    vec!["test", "-X", "100pt", "-Y", "100pt"]
+}
+
+test_case! {
+    include_stationary,
+    "svg",
+    vec!["test", "-I", "-X", "100pt", "-Y", "100pt"]
+}
+
+test_case! {
+    square_on_square,
+    "svg",
+    vec!["test", "-X", "100pt", "-Y", "100pt", "-s", "4", "-r", "4", "-S", "8", "-R", "2"]
+}
+
+test_case! {
+    square_in_square,
+    "svg",
+    vec!["test", "-X", "100pt", "-Y", "100pt", "-s", "4", "-r", "4", "-S", "8", "-R", "2", "-L", "inside"]
+}
+
+test_case! {
+    line_on_line,
+    "svg",
+    vec!["test", "-X", "100pt", "-Y", "same", "-s", "2", "-r", "2", "-S", "4", "-R", "1"]
+}
+
+test_case! {
+    circle_on_egg,
+    "svg",
+    vec!["test", "-X", "100pt", "-Y", "same", "-s", "tests/egg.svg", "-S", "7", "-R", "3"]
+}
+
+test_case! {
+    multiple_offsets,
+    "svg",
+    vec!["test", "-X", "100pt", "-Y", "same", "-s", "3", "-S", "6", "-R", "3", "-O", "0,0.5,1,1.5,2,2.5"]
 }

@@ -38,14 +38,15 @@ pub fn main(flags: &[String]) {
         options.tolerance,
     );
 
-    let polylines = spiropath(stationary, rotating, options);
+    let (polylines, ids) = spiropath(stationary, rotating, options);
 
     let output_path = arg_matches.value_of("output").unwrap();
     if output_path == "-" {
-        print_svg_polylines(&polylines, &mut BufWriter::new(stdout())); // NOT TESTED
+        print_svg_polylines(&polylines, &ids, &mut BufWriter::new(stdout())); // NOT TESTED
     } else {
         print_svg_polylines(
             &polylines,
+            &ids,
             &mut BufWriter::new(
                 File::create(output_path)
                     .unwrap_or_else(|error| panic!("{} creating output: {}", error, output_path)),
@@ -96,9 +97,9 @@ fn app() -> App<'static, 'static> {
                 .value_name("FILE or CIRCLE or COUNT")
                 .help(
                     "SVG file containing the rotating path,\n\
-                       CIRCLE for generating a radius-100 circle,\n\
-                       or the number of sides for a radius-100 polygon:\n\
-                       2 - line, 3 - triangle, 4 - square, etc.\n",
+                     CIRCLE for generating a radius-100 circle,\n\
+                     or the number of sides for a radius-100 polygon:\n\
+                     2 - line, 3 - triangle, 4 - square, etc.\n",
                 )
                 .default_value("CIRCLE"),
         )
@@ -109,9 +110,9 @@ fn app() -> App<'static, 'static> {
                 .value_name("FILE or CIRCLE or COUNT")
                 .help(
                     "SVG file containing the rotating path,\n\
-                       CIRCLE for generating a radius-100 circle,\n\
-                       or the number of sides for a radius-100 polygon:\n\
-                       2 - line, 3 - triangle, 4 - square, etc.\n",
+                     CIRCLE for generating a radius-100 circle,\n\
+                     or the number of sides for a radius-100 polygon:\n\
+                     2 - line, 3 - triangle, 4 - square, etc.\n",
                 )
                 .default_value("CIRCLE"),
         )
@@ -139,7 +140,7 @@ fn app() -> App<'static, 'static> {
                 .value_name("COUNT")
                 .help(
                     "Number of virtual teeth on (total length of)\n\
-                      the stationary path",
+                     the stationary path",
                 )
                 .default_value("47"),
         )
@@ -150,7 +151,7 @@ fn app() -> App<'static, 'static> {
                 .value_name("COUNT")
                 .help(
                     "Number of virtual teeth on (total length of)\n\
-                      the rotating path",
+                     the rotating path",
                 )
                 .default_value("7"),
         )
@@ -161,7 +162,7 @@ fn app() -> App<'static, 'static> {
                 .value_name("FRACTION")
                 .help(
                     "Linear path approximation tolerance,\n\
-                      as a fraction of the teeth size",
+                     as a fraction of the teeth size",
                 )
                 .default_value("0.001"),
         )
@@ -171,12 +172,12 @@ fn app() -> App<'static, 'static> {
                 .short("P")
                 .help(
                     "Coordinates of the traced point,\n\
-                       relative to the raw rotating path\n",
+                     relative to the raw rotating path\n",
                 )
                 .value_name("X,Y")
                 .number_of_values(2)
                 .require_delimiter(true)
-                .default_value("100,0"),
+                .default_value("0,100"),
         )
         .arg(
             Arg::with_name("angle")
@@ -185,9 +186,9 @@ fn app() -> App<'static, 'static> {
                 .value_name("DEGREES")
                 .help(
                     "Angle to use for picking the top point of the rotating path,\n\
-                      in degrees",
+                     in degrees",
                 )
-                .default_value("0.0"),
+                .default_value("0"),
         )
         .arg(
             Arg::with_name("offset")
@@ -196,14 +197,14 @@ fn app() -> App<'static, 'static> {
                 .value_name("FRACTION(S)")
                 .help(
                     "Offset(s) of start position(s) of rotating path,\n\
-                      relative to top point of stationary path,\n\
-                      as a fraction of the teeth size;\n\
-                      repeat for including multiple paths in the output\n",
+                     relative to top point of stationary path,\n\
+                     as a fraction of the teeth size;\n\
+                     repeat for including multiple paths in the output\n",
                 )
                 .multiple(true)
                 .use_delimiter(true)
                 .min_values(1)
-                .default_value("0.0"),
+                .default_value("0"),
         )
         .arg(
             Arg::with_name("x-scale")
@@ -212,9 +213,9 @@ fn app() -> App<'static, 'static> {
                 .value_name("SCALE")
                 .help(
                     "Scaling of the output SVG, one of:\n\
-                       \"<size>pt\" / \"x<factor>\" / \"same\" as y-scale\n",
+                     \"<size>pt\" / \"<factor>x\" / \"same\" as y-scale\n",
                 )
-                .default_value("x1.0"),
+                .default_value("1x"),
         )
         .arg(
             Arg::with_name("y-scale")
@@ -223,9 +224,9 @@ fn app() -> App<'static, 'static> {
                 .value_name("SCALE")
                 .help(
                     "Scaling of the output SVG, one of:\n\
-                       \"<size>pt\" / \"x<factor>\" / \"same\" as x-scale\n",
+                     \"<size>pt\" / \"<factor>x\" / \"same\" as x-scale\n",
                 )
-                .default_value("x1.0"),
+                .default_value("1x"),
         )
         .arg(
             Arg::with_name("mirror-rotating")
@@ -238,6 +239,14 @@ fn app() -> App<'static, 'static> {
                 .long("include-stationary")
                 .short("I")
                 .help("Include the stationary path in the output"),
+        )
+        .arg(
+            Arg::with_name("duration")
+                .long("duration")
+                .short("D")
+                .value_name("SECONDS")
+                .help("Duration of animation in seconds, or 0 for none")
+                .default_value("0"),
         )
 }
 
@@ -252,7 +261,8 @@ fn arg_options(arg_matches: &ArgMatches) -> Options {
     let include_stationary = arg_matches.is_present("include-stationary");
     let initial_offsets = parse_offsets(arg_matches, "offset", stationary_teeth as f64);
     let x_scale = parse_scale(arg_matches, "x-scale");
-    let y_scale = parse_scale(arg_matches, "x-scale");
+    let y_scale = parse_scale(arg_matches, "y-scale");
+    let duration = parse_duration(arg_matches, "duration");
     Options {
         location,
         stationary_teeth,
@@ -265,6 +275,7 @@ fn arg_options(arg_matches: &ArgMatches) -> Options {
         initial_offsets,
         x_scale,
         y_scale,
+        duration,
     }
 }
 
@@ -301,6 +312,14 @@ fn parse_fraction(arg_matches: &ArgMatches, name: &str) -> f64 {
     let value = parse_value(arg_matches, name);
     if value <= 0.0 {
         panic!("{}: {} is not positive", name, value); // NOT TESTED
+    }
+    value
+}
+
+fn parse_duration(arg_matches: &ArgMatches, name: &str) -> f64 {
+    let value = parse_value(arg_matches, name);
+    if value < 0.0 {
+        panic!("{}: {} is negative", name, value); // NOT TESTED
     }
     value
 }
@@ -367,12 +386,10 @@ fn parse_offsets(arg_matches: &ArgMatches, name: &str, stationary_teeth: f64) ->
 fn parse_scale(arg_matches: &ArgMatches, name: &str) -> Scale {
     match arg_matches.value_of(name).unwrap() {
         "same" => Scale::Same,
-        value if value.starts_with('x') => Scale::Factor(
-            // BEGIN NOT TESTED
-            value[1..]
+        value if value.ends_with('x') => Scale::Factor(
+            value[..(value.len() - 1)]
                 .parse::<f64>()
                 .unwrap_or_else(|error| panic!("{} in {}: {}", error, name, value)),
-            // END NOT TESTED
         ),
         value if value.ends_with("pt") => Scale::Size(
             value[..(value.len() - 2)]
@@ -386,19 +403,17 @@ fn parse_scale(arg_matches: &ArgMatches, name: &str) -> Scale {
 fn parse_polyline(arg_matches: &ArgMatches, name: &str, teeth: usize, tolerance: f64) -> Polyline {
     let value = arg_matches.value_of(name).unwrap();
     if value == "CIRCLE" {
-        // BEGIN NOT TESTED
         let max_step_angle = 2.0 * (1.0 - tolerance / 100.0).acos();
         let minimal_teeth = 2.0 * PI / max_step_angle;
         let factor = (minimal_teeth / teeth as f64).ceil();
         regular_polyline(teeth * factor as usize)
-        // END NOT TESTED
     } else if let Result::Ok(sides) = value.parse::<usize>() {
         if sides < 2 {
             panic!("{} sides: {} are less than 2", name, sides); // NOT TESTED
         }
         regular_polyline(sides)
     } else {
-        load_polyline_from_svg_file(value, tolerance) // NOT TESTED
+        load_polyline_from_svg_file(value, tolerance)
     }
 }
 
