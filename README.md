@@ -5,13 +5,8 @@
 [![codecov](https://codecov.io/gh/orenbenkiki/spiropath/branch/master/graph/badge.svg)](https://codecov.io/gh/orenbenkiki/spiropath)
 [![Docs](https://docs.rs/spiropath/badge.svg)](https://docs.rs/crate/spiropath)
 
-Investigate the total state space of communicating finite state machines. Specifically, given a
-model of a system comprising of multiple agents, where each agent is a non-deterministic state
-machine, which responds to either time or receiving a message with one of some possible actions,
-where each such action can change the agent state and/or send messages to other agents; Then the
-code here will generate the total possible configurations space of the overall system, validate the
-model for completeness, validate each system configuration for additional arbitrary correctness
-criteria, and visualize the model in various ways.
+Generalized Spirograph program allowing using arbitrary rotating and stationary shapes specified as
+SVG paths.
 
 ## Installing
 
