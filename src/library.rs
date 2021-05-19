@@ -1072,7 +1072,7 @@ pub fn spiropath(
             bends: &rotating_bends,
         };
 
-        ids.push(format!("offset-{}", initial_offset));
+        ids.push(format!("{:?}-{}", options.location, initial_offset));
         let mut polyline = spiropath_polyline(
             &stationary_state,
             &rotating_state,
