@@ -75,9 +75,7 @@ fn impl_assert_output(file_name: &str) {
         actual_polylines.iter().zip(expected_polylines.iter())
     {
         assert!(actual_polyline.len() == expected_polyline.len());
-        for (actual_point, expected_point) in
-            actual_polyline.iter().zip(expected_polyline.iter())
-        {
+        for (actual_point, expected_point) in actual_polyline.iter().zip(expected_polyline.iter()) {
             let delta_x = (actual_point.x - expected_point.x).abs();
             assert!(delta_x < 1e-4);
             let delta_y = (actual_point.y - expected_point.y).abs();
