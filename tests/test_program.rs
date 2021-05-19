@@ -2,6 +2,8 @@ use spiropath::program::main;
 use std::fs::create_dir_all;
 use std::fs::read;
 use std::fs::write;
+use std::str::from_utf8;
+use svg2polylines::parse as parse_svg;
 
 #[macro_export]
 macro_rules! test_name {
@@ -58,12 +60,30 @@ fn impl_assert_output(file_name: &str) {
         // END NOT TESTED
     });
 
-    assert!(
-        expected_bytes == actual_bytes,
-        "The actual results file {} is different from the expected results file {}",
-        expected_path,
-        actual_path
-    );
+    let actual_string = from_utf8(&actual_bytes).unwrap();
+    let expected_string = from_utf8(&expected_bytes).unwrap();
+
+    let actual_polylines =
+        parse_svg(&actual_string).unwrap_or_else(|_| panic!("parsing file: {}", actual_path));
+    let expected_polylines =
+        parse_svg(&expected_string).unwrap_or_else(|_| panic!("parsing file: {}", expected_path));
+
+    assert!(expected_polylines.len() > 0);
+    assert!(actual_polylines.len() == expected_polylines.len());
+
+    for (actual_polyline, expected_polyline) in
+        actual_polylines.iter().zip(expected_polylines.iter())
+    {
+        assert!(actual_polyline.len() == expected_polyline.len());
+        for (actual_point, expected_point) in
+            actual_polyline.iter().zip(expected_polyline.iter())
+        {
+            let delta_x = (actual_point.x - expected_point.x).abs();
+            assert!(delta_x < 1e-4);
+            let delta_y = (actual_point.y - expected_point.y).abs();
+            assert!(delta_y < 1e-4);
+        }
+    }
 }
 
 test_case! {
